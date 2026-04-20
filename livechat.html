@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwiftTrack — Live Support Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:       #FAFAF8;
+    --surface:  #FFFFFF;
+    --dark:     #111111;
+    --dark2:    #1A1A1A;
+    --red:      #E03A1E;
+    --red-dark: #B52D14;
+    --gold:     #D4820A;
+    --border:   #E2E0D8;
+    --muted:    #888880;
+    --light:    #F2F0EA;
+    --green:    #1A7A42;
+  }
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--dark);
+  }
+
+/* ── LAYOUT: full viewport, no scroll on body ── */
+.page {
+display: flex;
+flex-direction: column;
+height: 100dvh; /* dynamic viewport height – handles mobile browser chrome */
+width: 100%;
+overflow: hidden;
+}
+
+/* ── HEADER ── */
+.header {
+background: var(–dark2);
+color: #fff;
+padding: 0 1.25rem;
+height: 64px;
+display: flex;
+align-items: center;
+gap: 0.9rem;
+flex-shrink: 0;
+border-bottom: 1px solid rgba(255,255,255,0.08);
+min-width: 0;
+}
+.back-btn {
+background: none; border: none; color: rgba(255,255,255,0.6);
+cursor: pointer; padding: 0.4rem; border-radius: 6px;
+display: flex; align-items: center; gap: 0.35rem;
+font-size: 0.82rem; font-family: inherit;
+transition: color 0.15s, background 0.15s;
+flex-shrink: 0; text-decoration: none;
+}
+.back-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.back-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.avatar {
+width: 40px; height: 40px; border-radius: 50%;
+background: var(–red); display: flex; align-items: center; justify-content: center;
+font-family: ‘Bebas Neue’, sans-serif; font-size: 1rem; color: #fff;
+flex-shrink: 0; position: relative;
+}
+.avatar::after {
+content: ‘’; position: absolute; bottom: 0; right: 0;
+width: 11px; height: 11px; border-radius: 50%;
+background: #34C759; border: 2px solid var(–dark2);
+}
+.agent-info { flex: 1; min-width: 0; }
+.agent-name { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent-status { font-size: 0.67rem; color: rgba(255,255,255,0.5); margin-top: 0.08rem; display: flex; align-items: center; gap: 0.35rem; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #34C759; animation: fpulse 2.5s ease-in-out infinite; flex-shrink: 0; }
+@keyframes fpulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.logo-link { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.2rem; letter-spacing: 0.06em; color: #fff; text-decoration: none; flex-shrink: 0; margin-left: auto; }
+.logo-link span { color: var(–red); }
+
+/* ── CONNECTION BAR ── */
+.conn-bar {
+font-family: ‘JetBrains Mono’, monospace; font-size: 0.62rem;
+padding: 0.28rem 1rem; text-align: center;
+background: #F0F0EE; color: var(–muted);
+border-bottom: 1px solid var(–border);
+transition: background 0.3s, color 0.3s;
+flex-shrink: 0;
+}
+.conn-bar.ok  { background: #EDFBF3; color: var(–green); }
+.conn-bar.err { background: #FEF2EE; color: var(–red); }
+
+/* ── AUTH GATE ── */
+.gate {
+flex: 1; display: none; flex-direction: column;
+align-items: center; justify-content: center;
+gap: 1rem; padding: 2rem; text-align: center;
+overflow-y: auto;
+}
+.gate.show { display: flex; }
+.gate-icon { font-size: 3rem; }
+.gate-heading { font-weight: 700; font-size: 1.1rem; }
+.gate-sub { font-size: 0.84rem; color: var(–muted); line-height: 1.7; max-width: 300px; }
+.gate-btn {
+background: var(–red); color: #fff; border: none;
+padding: 0.72rem 2rem; border-radius: 8px;
+font-size: 0.88rem; font-weight: 600; cursor: pointer;
+font-family: inherit; transition: background 0.15s, transform 0.15s;
+}
+.gate-btn:hover { background: var(–red-dark); transform: translateY(-1px); }
+
+/* ── MESSAGES AREA ── */
+.msgs-wrap {
+flex: 1; overflow-y: auto; overflow-x: hidden;
+padding: 1.2rem 1rem 0.5rem;
+display: flex; flex-direction: column; gap: 0.8rem;
+scroll-behavior: smooth;
+}
+.msgs-wrap.hidden { display: none; }
+.msgs-wrap::-webkit-scrollbar { width: 4px; }
+.msgs-wrap::-webkit-scrollbar-thumb { background: #DDD; border-radius: 2px; }
+
+/* Constrain content width on wide screens */
+.msgs-inner {
+width: 100%; max-width: 720px; margin: 0 auto;
+display: flex; flex-direction: column; gap: 0.8rem;
+}
+
+/* ── QUICK REPLIES ── */
+.quick-wrap {
+padding: 0.65rem 1rem; display: flex; flex-wrap: wrap; gap: 0.4rem;
+border-top: 1px solid var(–border); background: #fff;
+flex-shrink: 0;
+}
+.quick-wrap.hidden { display: none; }
+.qp {
+background: none; border: 1.5px solid #DDD; font-size: 0.72rem;
+font-family: inherit; padding: 0.3rem 0.7rem; border-radius: 20px;
+cursor: pointer; color: #555; transition: all 0.15s; white-space: nowrap;
+}
+.qp:hover { border-color: var(–red); color: var(–red); background: #FFF0ED; }
+
+/* ── INPUT BAR ── */
+.input-bar {
+padding: 0.75rem 1rem; border-top: 1px solid var(–border);
+background: #fff; display: flex; gap: 0.6rem; align-items: center;
+flex-shrink: 0;
+/* Safe area for phones with home indicator */
+padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.input-bar.hidden { display: none; }
+.msg-inp {
+flex: 1; border: 1.5px solid #E0DEDC; background: #FAFAF8;
+padding: 0.68rem 1rem; font-family: inherit; font-size: 0.86rem;
+border-radius: 24px; outline: none; transition: border-color 0.18s;
+line-height: 1.4; min-width: 0;
+}
+.msg-inp:focus { border-color: var(–red); background: #fff; }
+.msg-inp::placeholder { color: #BBB; }
+.send-btn {
+width: 42px; height: 42px; border-radius: 50%;
+background: var(–red); border: none; cursor: pointer;
+display: flex; align-items: center; justify-content: center;
+transition: background 0.15s, transform 0.15s; flex-shrink: 0;
+}
+.send-btn:hover { background: var(–red-dark); transform: scale(1.08); }
+.send-btn svg { width: 14px; height: 14px; fill: #fff; }
+
+/* ── MESSAGE BUBBLES ── */
+.msg { display: flex; gap: 0.55rem; align-items: flex-end; animation: mup 0.22s ease; }
+@keyframes mup { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.msg.me { flex-direction: row-reverse; align-self: flex-end; }
+.msg:not(.me) { align-self: flex-start; }
+.msg-av {
+width: 30px; height: 30px; border-radius: 50%;
+display: flex; align-items: center; justify-content: center;
+font-size: 0.6rem; font-weight: 700; font-family: ‘JetBrains Mono’, monospace;
+flex-shrink: 0;
+}
+.msg:not(.me) .msg-av { background: #FFE8E4; color: var(–red); }
+.msg.me .msg-av { background: #E4E4EC; color: #444; }
+.msg-body { max-width: 78%; }
+.msg-txt {
+padding: 0.68rem 0.95rem; font-size: 0.86rem;
+line-height: 1.55; word-break: break-word;
+}
+.msg:not(.me) .msg-txt {
+background: #fff; border: 1px solid #E8E8E4; color: var(–dark);
+border-radius: 4px 14px 14px 14px;
+box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.msg.me .msg-txt {
+background: var(–dark); color: #fff;
+border-radius: 14px 4px 14px 14px;
+}
+.msg-time { font-size: 0.6rem; color: var(–muted); margin-top: 0.28rem; }
+.msg.me .msg-time { text-align: right; }
+
+/* Typing indicator */
+.typing { display: flex; gap: 0.55rem; align-items: flex-end; align-self: flex-start; }
+.typing-bub {
+background: #fff; border: 1px solid #E8E8E4; border-radius: 4px 14px 14px 14px;
+padding: 0.75rem 1rem; display: flex; gap: 5px; align-items: center;
+box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.tdot { width: 7px; height: 7px; border-radius: 50%; background: #CCC; animation: tdot 1.4s ease-in-out infinite; }
+.tdot:nth-child(2) { animation-delay: 0.2s; }
+.tdot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes tdot { 0%,60%,100%{transform:translateY(0);background:#CCC} 30%{transform:translateY(-6px);background:#AAA} }
+
+/* ── AUTH MODAL ── */
+.modal-overlay {
+position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 500;
+display: flex; align-items: center; justify-content: center;
+backdrop-filter: blur(4px); padding: 1rem;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+background: #fff; border-radius: 16px; padding: 2rem;
+width: 100%; max-width: 400px; box-shadow: 0 24px 80px rgba(0,0,0,0.18);
+max-height: 90vh; overflow-y: auto;
+}
+.modal-logo { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.5rem; letter-spacing: 0.06em; margin-bottom: 0.3rem; }
+.modal-logo span { color: var(–red); }
+.modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+.modal-sub { font-size: 0.82rem; color: var(–muted); margin-bottom: 1.5rem; }
+.mfield { width: 100%; border: 1.5px solid var(–border); background: #FAFAF8; color: var(–dark); font-size: 0.9rem; font-family: inherit; padding: 0.78rem 1rem; border-radius: 8px; outline: none; margin-bottom: 0.75rem; transition: border-color 0.2s; }
+.mfield:focus { border-color: var(–red); }
+.mbtn { width: 100%; padding: 0.82rem; background: var(–red); color: #fff; border: none; cursor: pointer; font-family: ‘Bebas Neue’, sans-serif; font-size: 1.1rem; letter-spacing: 0.1em; border-radius: 8px; transition: background 0.18s; margin-top: 0.3rem; }
+.mbtn:hover { background: var(–red-dark); }
+.mbtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.modal-switch { text-align: center; margin-top: 1rem; font-size: 0.82rem; color: var(–muted); }
+.modal-switch a { color: var(–red); cursor: pointer; font-weight: 600; text-decoration: none; }
+.modal-err { background: #FEF2EE; color: var(–red); border: 1px solid #FBCFC5; border-radius: 6px; padding: 0.55rem 0.8rem; font-size: 0.8rem; margin-bottom: 0.75rem; display: none; }
+.modal-err.show { display: block; }
+.otp-boxes { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1rem; flex-wrap: wrap; }
+.otp-box { width: 46px; height: 54px; border: 1.5px solid var(–border); border-radius: 8px; text-align: center; font-size: 1.4rem; font-family: ‘JetBrains Mono’, monospace; font-weight: 600; outline: none; background: #FAFAF8; transition: border-color 0.2s; }
+.otp-box:focus { border-color: var(–red); }
+.resend-link { text-align: center; font-size: 0.78rem; color: var(–muted); margin-top: 0.5rem; }
+.resend-link a { color: var(–red); cursor: pointer; }
+.auth-view { display: none; }
+.auth-view.active { display: block; }
+
+/* User badge in header */
+.user-badge {
+display: flex; align-items: center; gap: 0.4rem;
+font-size: 0.75rem; color: rgba(255,255,255,0.6);
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+max-width: 120px;
+}
+.user-badge .u-dot { width: 7px; height: 7px; border-radius: 50%; background: #34C759; flex-shrink: 0; }
+.signout-btn {
+background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.55);
+font-size: 0.72rem; font-family: inherit; padding: 0.3rem 0.65rem;
+border-radius: 5px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; white-space: nowrap;
+}
+.signout-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* System message divider */
+.sys-msg {
+text-align: center; font-size: 0.68rem; color: var(–muted);
+font-family: ‘JetBrains Mono’, monospace; padding: 0.3rem 0;
+letter-spacing: 0.06em;
+}
+
+/* Loading spinner */
+.loading-msgs {
+display: flex; align-items: center; justify-content: center;
+gap: 0.5rem; padding: 2rem; color: var(–muted); font-size: 0.82rem;
+}
+.spin {
+width: 18px; height: 18px; border: 2px solid #DDD;
+border-top-color: var(–red); border-radius: 50%;
+animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Responsive */
+@media (max-width: 480px) {
+.header { height: 56px; padding: 0 0.75rem; gap: 0.65rem; }
+.agent-name { font-size: 0.85rem; }
+.logo-link { font-size: 1rem; }
+.msgs-wrap { padding: 0.9rem 0.75rem 0.4rem; }
+.quick-wrap { padding: 0.5rem 0.75rem; }
+.input-bar { padding: 0.6rem 0.75rem; padding-bottom: max(0.6rem, env(safe-area-inset-bottom)); }
+.msg-body { max-width: 86%; }
+}
+</style>
+
+</head>
+<body>
+
+<!-- AUTH MODAL -->
+
+<div class="modal-overlay hidden" id="authOverlay">
+  <div class="modal">
+    <div class="modal-logo">Swift<span>Track</span></div>
+    <div class="auth-view active" id="viewLogin">
+      <div class="modal-title">Sign in to chat</div>
+      <div class="modal-sub">Track parcels, chat with support, and manage your deliveries.</div>
+      <div class="modal-err" id="loginErr"></div>
+      <input class="mfield" id="loginEmail" type="email" placeholder="Email address" autocomplete="email">
+      <input class="mfield" id="loginPass" type="password" placeholder="Password" autocomplete="current-password">
+      <button class="mbtn" id="loginBtn" onclick="doLogin()">SIGN IN →</button>
+      <div class="modal-switch">No account? <a onclick="switchView('signup')">Create one free</a></div>
+    </div>
+    <div class="auth-view" id="viewSignup">
+      <div class="modal-title">Create your account</div>
+      <div class="modal-sub">Get started with real-time parcel tracking and support.</div>
+      <div class="modal-err" id="signupErr"></div>
+      <input class="mfield" id="signupName" type="text" placeholder="Full name">
+      <input class="mfield" id="signupEmail" type="email" placeholder="Email address" autocomplete="email">
+      <input class="mfield" id="signupPass" type="password" placeholder="Password (min 8 characters)" autocomplete="new-password">
+      <button class="mbtn" id="signupBtn" onclick="doSignup()">CREATE ACCOUNT →</button>
+      <div class="modal-switch">Already have an account? <a onclick="switchView('login')">Sign in</a></div>
+    </div>
+    <div class="auth-view" id="viewOtp">
+      <div class="modal-title">Check your email</div>
+      <div class="modal-sub" id="otpSub">We sent a 6-digit code. Enter it below.</div>
+      <div class="modal-err" id="otpErr"></div>
+      <div class="otp-boxes">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric">
+      </div>
+      <button class="mbtn" id="otpBtn" onclick="verifyOtp()">VERIFY CODE →</button>
+      <div class="resend-link">Didn't get it? <a onclick="resendOtp()">Resend code</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE LAYOUT -->
+
+<div class="page">
+
+  <!-- HEADER -->
+
+  <div class="header">
+    <a class="back-btn" href="index.html">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      Back
+    </a>
+    <div class="avatar">ST</div>
+    <div class="agent-info">
+      <div class="agent-name">SwiftTrack Support</div>
+      <div class="agent-status"><span class="status-dot"></span>Online · We reply instantly</div>
+    </div>
+    <div id="headerRight" style="display:flex;align-items:center;gap:0.5rem;margin-left:auto;flex-shrink:0;">
+      <div class="user-badge" id="userBadge" style="display:none;">
+        <span class="u-dot"></span>
+        <span id="userEmail"></span>
+      </div>
+      <button class="signout-btn" id="signoutBtn" onclick="doLogout()" style="display:none;">Sign out</button>
+      <a class="logo-link" href="index.html">Swift<span>Track</span></a>
+    </div>
+  </div>
+
+  <!-- CONNECTION BAR -->
+
+  <div class="conn-bar" id="connBar">Connecting to support…</div>
+
+  <!-- AUTH GATE (shown when logged out) -->
+
+  <div class="gate show" id="gateEl">
+    <div class="gate-icon">💬</div>
+    <div class="gate-heading">Sign in to start chatting</div>
+    <div class="gate-sub">Create a free account or sign in to send messages and get real-time help with your deliveries.</div>
+    <button class="gate-btn" onclick="showAuthModal()">Sign In / Create Account</button>
+  </div>
+
+  <!-- MESSAGES -->
+
+  <div class="msgs-wrap hidden" id="msgsWrap">
+    <div class="msgs-inner" id="msgsInner">
+      <!-- Welcome message -->
+      <div class="msg" id="welcomeMsg">
+        <div class="msg-av">ST</div>
+        <div class="msg-body">
+          <div class="msg-txt">Hey there! 👋 How can we help you today? Ask us about tracking, pickups, rates, or any delivery issue.</div>
+          <div class="msg-time">SwiftTrack Support · Just now</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK REPLIES -->
+
+  <div class="quick-wrap hidden" id="quickWrap">
+    <button class="qp" onclick="qs('Where is my package?')">📦 Track my package</button>
+    <button class="qp" onclick="qs('How do I schedule a pickup?')">🚚 Schedule pickup</button>
+    <button class="qp" onclick="qs('What are your delivery rates?')">💰 Rates & pricing</button>
+    <button class="qp" onclick="qs('I have a problem with my delivery')">⚠️ Report an issue</button>
+  </div>
+
+  <!-- INPUT BAR -->
+
+  <div class="input-bar hidden" id="inputBar">
+    <input class="msg-inp" id="msgInp" type="text" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="send-btn" onclick="sendMsg()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+const SUPABASE_URL  = 'https://azxbtwklromrnmyutmoz.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_MaHxITBZRvjweKDwS4cr8g__A6jZI0k';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let currentUser = null;
+let SID = null;
+let sub = null;
+let otpEmail = '';
+let historyLoaded = false;
+
+/* ── INIT ── */
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session?.user){ currentUser = session.user; onLoggedIn(); }
+  else { showGate(); }
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if(event === 'SIGNED_IN' && session?.user && !currentUser){
+    currentUser = session.user; onLoggedIn();
+  }
+  if(event === 'SIGNED_OUT'){ currentUser = null; SID = null; onLoggedOut(); }
+});
+
+/* ── AUTH MODAL ── */
+function showAuthModal(){
+  document.getElementById('authOverlay').classList.remove('hidden');
+  switchView('login');
+}
+function hideAuthModal(){ document.getElementById('authOverlay').classList.add('hidden'); }
+function switchView(v){
+  document.querySelectorAll('.auth-view').forEach(el => el.classList.remove('active'));
+  document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
+}
+function setErr(id, msg){ const el = document.getElementById(id); el.textContent = msg; el.classList.toggle('show', !!msg); }
+
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  setErr('loginErr', '');
+  if(!email||!pass){ setErr('loginErr','Please fill in all fields.'); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'SIGNING IN…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'SIGN IN →';
+  if(error){ setErr('loginErr', error.message); return; }
+  currentUser = data.user; hideAuthModal(); onLoggedIn();
+}
+
+async function doSignup(){
+  const name  = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const pass  = document.getElementById('signupPass').value;
+  setErr('signupErr', '');
+  if(!name||!email||!pass){ setErr('signupErr','Please fill in all fields.'); return; }
+  if(pass.length < 8){ setErr('signupErr','Password must be at least 8 characters.'); return; }
+  const btn = document.getElementById('signupBtn');
+  btn.disabled = true; btn.textContent = 'CREATING…';
+  const { error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ full_name: name } } });
+  btn.disabled = false; btn.textContent = 'CREATE ACCOUNT →';
+  if(error){ setErr('signupErr', error.message); return; }
+  otpEmail = email;
+  document.getElementById('otpSub').textContent = `Check ${email} for your 6-digit code.`;
+  switchView('otp'); setupOtpBoxes();
+}
+
+function setupOtpBoxes(){
+  const boxes = document.querySelectorAll('.otp-box');
+  boxes.forEach((box, i) => {
+    box.value = '';
+    box.oninput   = () => { if(box.value && i < boxes.length - 1) boxes[i+1].focus(); };
+    box.onkeydown = (e) => { if(e.key === 'Backspace' && !box.value && i > 0) boxes[i-1].focus(); };
+  });
+  boxes[0].focus();
+}
+function getOtpValue(){ return Array.from(document.querySelectorAll('.otp-box')).map(b => b.value).join(''); }
+
+async function verifyOtp(){
+  const token = getOtpValue();
+  if(token.length < 6){ setErr('otpErr','Enter the full 6-digit code.'); return; }
+  setErr('otpErr','');
+  const btn = document.getElementById('otpBtn');
+  btn.disabled = true; btn.textContent = 'VERIFYING…';
+  const { data, error } = await sb.auth.verifyOtp({ email: otpEmail, token, type:'signup' });
+  btn.disabled = false; btn.textContent = 'VERIFY CODE →';
+  if(error){ setErr('otpErr', error.message); return; }
+  currentUser = data.user; hideAuthModal(); onLoggedIn();
+}
+
+async function resendOtp(){
+  await sb.auth.resend({ type:'signup', email: otpEmail });
+  document.getElementById('otpSub').textContent = 'New code sent! Check your inbox.';
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+}
+
+/* ── ON LOGGED IN / OUT ── */
+function onLoggedIn(){
+  SID = 'user_' + currentUser.id;
+
+  // Update header
+  const email = currentUser.user_metadata?.full_name || currentUser.email || '';
+  document.getElementById('userEmail').textContent = trunc(email, 18);
+  document.getElementById('userBadge').style.display = 'flex';
+  document.getElementById('signoutBtn').style.display = 'block';
+
+  // Show chat UI
+  showChatUI();
+
+  // Start realtime subscription
+  if(!sub) initSub();
+
+  // Load history
+  if(!historyLoaded) loadHistory();
+}
+
+function onLoggedOut(){
+  if(sub){ sub.unsubscribe(); sub = null; }
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('signoutBtn').style.display = 'none';
+  showGate();
+}
+
+function showGate(){
+  document.getElementById('gateEl').classList.add('show');
+  document.getElementById('msgsWrap').classList.add('hidden');
+  document.getElementById('quickWrap').classList.add('hidden');
+  document.getElementById('inputBar').classList.add('hidden');
+  setConn('connecting');
+}
+
+function showChatUI(){
+  document.getElementById('gateEl').classList.remove('show');
+  document.getElementById('msgsWrap').classList.remove('hidden');
+  document.getElementById('quickWrap').classList.remove('hidden');
+  document.getElementById('inputBar').classList.remove('hidden');
+  scrollBottom();
+}
+
+/* ── LOAD HISTORY ── */
+async function loadHistory(){
+  if(!SID) return;
+  historyLoaded = true;
+  const inner = document.getElementById('msgsInner');
+  const welcome = document.getElementById('welcomeMsg');
+
+  // Show loading
+  const loader = document.createElement('div');
+  loader.className = 'loading-msgs';
+  loader.innerHTML = '<div class="spin"></div> Loading messages…';
+  inner.appendChild(loader);
+
+  const { data } = await sb.from('messages')
+    .select('*').eq('session_id', SID).order('created_at', { ascending: true });
+
+  loader.remove();
+
+  if(data && data.length > 0){
+    if(welcome) welcome.remove();
+    document.getElementById('quickWrap').classList.add('hidden');
+    inner.innerHTML = '';
+    // Date divider
+    appendSys('— Previous conversation —');
+    data.forEach(m => appendMsg(m.text, m.sender === 'admin' ? 'agent' : 'user', false));
+  }
+  scrollBottom();
+}
+
+/* ── REALTIME SUBSCRIPTION ── */
+function initSub(){
+  if(!SID) return;
+  setConn('connecting');
+
+  sub = sb.channel('chat:' + SID)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'messages',
+      filter: `session_id=eq.${SID}`
+    }, payload => {
+      const m = payload.new;
+      if(m.sender === 'admin'){
+        removeTyping();
+        appendMsg(m.text, 'agent');
+      }
+    })
+    .subscribe(status => {
+      if(status === 'SUBSCRIBED') setConn('ok');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setConn('err');
+    });
+}
+
+/* ── SEND MESSAGE ── */
+async function sendMsg(){
+  if(!currentUser){ showAuthModal(); return; }
+  const inp = document.getElementById('msgInp');
+  const t = inp.value.trim();
+  if(!t) return;
+  inp.value = '';
+  document.getElementById('quickWrap').classList.add('hidden');
+  appendMsg(t, 'user');
+
+  const { error } = await sb.from('messages').insert({
+    session_id: SID,
+    sender: 'user',
+    text: t,
+    user_id: currentUser.id,
+    user_email: currentUser.email,
+    user_name: currentUser.user_metadata?.full_name || currentUser.email
+  });
+
+  if(error) appendMsg('⚠️ Failed to send. Please try again.', 'agent');
+}
+
+function qs(text){ document.getElementById('msgInp').value = text; sendMsg(); }
+
+/* ── APPEND MESSAGE ── */
+function appendMsg(txt, role, animate = true){
+  const inner = document.getElementById('msgsInner');
+  const isUser = role === 'user';
+  const d = document.createElement('div');
+  d.className = 'msg' + (isUser ? ' me' : '');
+  if(!animate) d.style.animation = 'none';
+  d.innerHTML = `
+    <div class="msg-av">${isUser ? 'ME' : 'ST'}</div>
+    <div class="msg-body">
+      <div class="msg-txt">${esc(txt)}</div>
+      <div class="msg-time">${isUser ? 'You' : 'SwiftTrack Support'} · ${nowFmt()}</div>
+    </div>`;
+  inner.appendChild(d);
+  scrollBottom();
+}
+
+function appendSys(text){
+  const inner = document.getElementById('msgsInner');
+  const d = document.createElement('div');
+  d.className = 'sys-msg';
+  d.textContent = text;
+  inner.appendChild(d);
+}
+
+/* ── TYPING INDICATOR ── */
+function showTyping(){
+  removeTyping();
+  const inner = document.getElementById('msgsInner');
+  const d = document.createElement('div');
+  d.className = 'typing'; d.id = 'typingEl';
+  d.innerHTML = `
+    <div class="msg-av" style="background:#FFE8E4;color:var(--red);font-size:0.6rem;font-weight:700;font-family:'JetBrains Mono',monospace;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;">ST</div>
+    <div class="typing-bub"><span class="tdot"></span><span class="tdot"></span><span class="tdot"></span></div>`;
+  inner.appendChild(d);
+  scrollBottom();
+}
+function removeTyping(){ const el = document.getElementById('typingEl'); if(el) el.remove(); }
+
+/* ── CONNECTION BAR ── */
+function setConn(st){
+  const el = document.getElementById('connBar');
+  if(st === 'ok'){ el.textContent = '🟢 Connected — support is online'; el.className = 'conn-bar ok'; }
+  else if(st === 'err'){ el.textContent = '🔴 Connection issue — retrying…'; el.className = 'conn-bar err'; }
+  else { el.textContent = 'Connecting to support…'; el.className = 'conn-bar'; }
+}
+
+/* ── UTILS ── */
+function scrollBottom(){
+  setTimeout(() => {
+    const w = document.getElementById('msgsWrap');
+    w.scrollTop = w.scrollHeight;
+  }, 30);
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function trunc(s, n){ return String(s).length > n ? s.slice(0,n)+'…' : String(s); }
+function nowFmt(){ return new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
+
+/* ── MOBILE: prevent input from being hidden by keyboard ── */
+const msgInp = document.getElementById('msgInp');
+if(msgInp){
+  msgInp.addEventListener('focus', () => {
+    setTimeout(() => scrollBottom(), 400);
+  });
+}
+
+/* ── GO ── */
+init();
+</script>
+
+</body>
+</html>
