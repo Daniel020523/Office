@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwiftTrack — Courier Services</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:       #FAFAF8;
+    --surface:  #FFFFFF;
+    --dark:     #111111;
+    --dark2:    #1A1A1A;
+    --red:      #E03A1E;
+    --red-dark: #B52D14;
+    --gold:     #D4820A;
+    --border:   #E2E0D8;
+    --muted:    #888880;
+    --light:    #F2F0EA;
+    --green:    #1A7A42;
+  }
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--dark);
+    line-height: 1.5; overflow-x: hidden;
+  }
+
+  /* NAV */
+  nav {
+    position:sticky; top:0; z-index:200;
+    background:var(--surface); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 3rem; height:64px;
+    box-shadow:0 1px 8px rgba(0,0,0,0.06);
+  }
+  .logo { font-family:'Bebas Neue','Arial Black',sans-serif; font-size:1.75rem; letter-spacing:0.06em; color:var(--dark); }
+  .logo-accent { color:var(--red); }
+  .nav-links { display:flex; gap:0.4rem; list-style:none; align-items:center; }
+  .nav-links a { text-decoration:none; color:var(--dark); font-size:0.85rem; font-weight:500; padding:0.4rem 0.9rem; border-radius:6px; transition:background 0.15s; }
+  .nav-links a:hover { background:var(--light); }
+  .nav-links .nprimary { background:var(--red); color:#fff; }
+  .nav-links .nprimary:hover { background:var(--red-dark); }
+
+  /* TICKER */
+  .ticker { background:var(--dark); overflow:hidden; padding:0.55rem 0; border-bottom:2px solid var(--red); }
+  .ticker-inner { display:flex; gap:2.5rem; animation:roll 26s linear infinite; white-space:nowrap; }
+  .tick { font-size:0.76rem; letter-spacing:0.14em; text-transform:uppercase; font-weight:500; color:rgba(255,255,255,0.75); }
+  .tsep { color:var(--gold); font-size:0.6rem; }
+  @keyframes roll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+  /* HERO */
+  .hero { display:grid; grid-template-columns:1fr 1fr; min-height:calc(100vh - 104px); }
+  .hero-left {
+    padding:5rem 4rem; display:flex; flex-direction:column; justify-content:center;
+    border-right:1px solid var(--border); background:var(--surface);
+  }
+  .eyebrow {
+    display:inline-flex; align-items:center; gap:0.5rem;
+    background:#FFF0ED; color:var(--red); font-size:0.72rem; font-weight:600;
+    letter-spacing:0.14em; text-transform:uppercase; padding:0.32rem 0.75rem;
+    border-radius:4px; border:1px solid #FBCFC5; margin-bottom:1.8rem; width:fit-content;
+  }
+  .e-dot { width:6px; height:6px; border-radius:50%; background:var(--red); animation:blink 1.8s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+  h1 { font-family:'Bebas Neue','Arial Black',sans-serif; font-size:clamp(4rem,7vw,7.5rem); line-height:0.93; letter-spacing:0.02em; color:var(--dark); margin-bottom:1.6rem; }
+  h1 .red { color:var(--red); display:block; }
+  .hero-desc { font-size:1rem; line-height:1.75; color:#606058; max-width:30rem; margin-bottom:2.5rem; }
+  .hero-btns { display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:3rem; }
+  .btn { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.88rem; font-weight:600; padding:0.7rem 1.4rem; border-radius:8px; cursor:pointer; text-decoration:none; border:none; font-family:inherit; transition:all 0.18s; }
+  .btn-red { background:var(--red); color:#fff; }
+  .btn-red:hover { background:var(--red-dark); transform:translateY(-1px); box-shadow:0 4px 14px rgba(224,58,30,0.35); }
+  .btn-ghost { background:transparent; color:var(--dark); border:1.5px solid var(--border); }
+  .btn-ghost:hover { border-color:var(--dark); background:var(--light); }
+  .hero-stats { display:flex; gap:2.5rem; padding-top:2rem; border-top:1px solid var(--border); }
+  .stat-n { font-family:'Bebas Neue',sans-serif; font-size:2.4rem; color:var(--dark); line-height:1; }
+  .stat-l { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-weight:500; margin-top:0.15rem; }
+
+  /* TRACK PANEL */
+  .hero-right {
+    background:var(--dark2); padding:4.5rem 3.5rem;
+    display:flex; flex-direction:column; justify-content:center;
+    position:relative; overflow:hidden;
+  }
+  .hero-right::after { content:'TRACK'; position:absolute; bottom:-2rem; right:-1rem; font-family:'Bebas Neue',sans-serif; font-size:13rem; color:rgba(255,255,255,0.035); pointer-events:none; line-height:1; }
+  .track-lbl { font-family:'JetBrains Mono',monospace; font-size:0.68rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem; }
+  .track-lbl::before { content:''; width:1.4rem; height:1px; background:var(--gold); display:inline-block; }
+  .tfield { width:100%; background:rgba(255,255,255,0.07); border:1.5px solid rgba(255,255,255,0.14); color:#fff; font-size:0.95rem; font-family:'JetBrains Mono',monospace; padding:0.88rem 1.1rem; border-radius:8px; outline:none; margin-bottom:0.75rem; transition:border-color 0.2s; letter-spacing:0.06em; }
+  .tfield::placeholder { color:rgba(255,255,255,0.28); }
+  .tfield:focus { border-color:var(--gold); }
+  .tbtn { width:100%; padding:0.95rem; background:var(--red); color:#fff; border:none; cursor:pointer; font-family:'Bebas Neue',sans-serif; font-size:1.25rem; letter-spacing:0.12em; border-radius:8px; transition:background 0.18s,transform 0.12s; }
+  .tbtn:hover { background:var(--red-dark); transform:translateY(-1px); }
+  .tbtn:active { transform:translateY(0); }
+
+  .res { margin-top:1.5rem; display:none; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.11); border-radius:10px; padding:1.4rem; animation:fadeup 0.3s ease; }
+  .res.show { display:block; }
+  @keyframes fadeup { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .res-id { font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--gold); letter-spacing:0.14em; margin-bottom:0.55rem; }
+  .res-st { font-family:'Bebas Neue',sans-serif; font-size:2rem; margin-bottom:1.1rem; }
+  .res-st.transit { color:#FBBC04; } .res-st.delivered { color:#34C759; } .res-st.processing { color:#64A8FF; } .res-st.notfound { color:var(--red); }
+  .tl { display:flex; flex-direction:column; }
+  .tl-row { display:flex; gap:0.75rem; padding-bottom:1rem; position:relative; }
+  .tl-row:not(:last-child)::before { content:''; position:absolute; left:0.31rem; top:0.75rem; bottom:0; width:1px; background:rgba(255,255,255,0.1); }
+  .tl-dot { width:0.7rem; height:0.7rem; border-radius:50%; background:rgba(255,255,255,0.18); flex-shrink:0; margin-top:0.2rem; }
+  .tl-dot.active { background:#FBBC04; box-shadow:0 0 8px #FBBC04; } .tl-dot.done { background:#34C759; }
+  .tl-ev { font-size:0.8rem; color:#e4e4e4; margin-bottom:0.1rem; }
+  .tl-mt { font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:rgba(255,255,255,0.36); }
+
+  /* SERVICES */
+  .svcs { display:grid; grid-template-columns:repeat(4,1fr); background:var(--surface); border-top:1px solid var(--border); }
+  .svc { padding:2.4rem 2rem; border-right:1px solid var(--border); transition:background 0.2s; }
+  .svc:last-child { border-right:none; }
+  .svc:hover { background:var(--light); }
+  .svc-ic { font-size:1.9rem; margin-bottom:1rem; }
+  .svc-h { font-size:0.95rem; font-weight:700; margin-bottom:0.45rem; }
+  .svc-p { font-size:0.81rem; line-height:1.65; color:var(--muted); }
+
+  /* HOW */
+  .how { padding:6rem 4rem; border-top:1px solid var(--border); background:var(--bg); }
+  .sec-tag { font-size:0.72rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--red); margin-bottom:0.7rem; }
+  .sec-h { font-family:'Bebas Neue',sans-serif; font-size:clamp(2.2rem,4vw,3.5rem); letter-spacing:0.03em; margin-bottom:3rem; }
+  .steps-g { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; }
+  .step { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:2rem; position:relative; overflow:hidden; transition:box-shadow 0.2s,transform 0.2s; }
+  .step:hover { box-shadow:0 8px 28px rgba(0,0,0,0.08); transform:translateY(-2px); }
+  .step-n { font-family:'Bebas Neue',sans-serif; font-size:4.5rem; color:var(--border); position:absolute; top:0.5rem; right:1.2rem; line-height:1; }
+  .step-ic { font-size:2rem; margin-bottom:1rem; }
+  .step-h { font-size:0.95rem; font-weight:700; margin-bottom:0.45rem; }
+  .step-p { font-size:0.81rem; line-height:1.65; color:var(--muted); }
+
+  /* FOOTER */
+  footer { background:var(--dark); color:rgba(255,255,255,0.65); padding:2.5rem 4rem; display:flex; align-items:center; justify-content:space-between; border-top:1px solid #2a2a2a; }
+  .fl { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:#fff; letter-spacing:0.05em; }
+  .fl span { color:var(--red); }
+  .flinks { display:flex; gap:1.5rem; list-style:none; }
+  .flinks a { color:rgba(255,255,255,0.45); text-decoration:none; font-size:0.78rem; transition:color 0.15s; }
+  .flinks a:hover { color:#fff; }
+  .fc { font-size:0.74rem; }
+
+  /* CHAT FAB */
+  .fab { position:fixed; bottom:1.8rem; right:1.8rem; z-index:300; width:56px; height:56px; border-radius:50%; background:var(--red); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 18px rgba(224,58,30,0.45); transition:transform 0.2s,box-shadow 0.2s; }
+  .fab:hover { transform:scale(1.1); box-shadow:0 6px 24px rgba(224,58,30,0.55); }
+  .fab svg { width:22px; height:22px; fill:#fff; }
+  .fab-dot { position:absolute; top:-2px; right:-2px; width:14px; height:14px; border-radius:50%; background:#34C759; border:2.5px solid var(--bg); animation:fpulse 2s ease-in-out infinite; }
+  @keyframes fpulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+
+  /* CHAT WINDOW */
+  .cwin { position:fixed; bottom:5.5rem; right:1.8rem; z-index:299; width:354px; height:505px; background:#fff; border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,0.14),0 2px 8px rgba(0,0,0,0.07); transform:scale(0.88) translateY(18px); transform-origin:bottom right; opacity:0; pointer-events:none; transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1),opacity 0.2s; }
+  .cwin.open { transform:scale(1) translateY(0); opacity:1; pointer-events:all; }
+  .cwh { background:var(--dark); color:#fff; padding:1rem 1.1rem; display:flex; align-items:center; gap:0.75rem; }
+  .cwav { width:38px; height:38px; border-radius:50%; background:var(--red); display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',sans-serif; font-size:1rem; color:#fff; flex-shrink:0; }
+  .cwn { font-weight:600; font-size:0.88rem; }
+  .cws { font-size:0.67rem; color:rgba(255,255,255,0.52); margin-top:0.1rem; display:flex; align-items:center; gap:0.35rem; }
+  .cws-dot { width:6px; height:6px; border-radius:50%; background:#34C759; }
+  .cwx { margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.45); font-size:1.1rem; cursor:pointer; padding:4px; line-height:1; transition:color 0.15s; }
+  .cwx:hover { color:#fff; }
+  .conn-bar { font-family:'JetBrains Mono',monospace; font-size:0.62rem; padding:0.28rem 0.9rem; text-align:center; background:#F7F7F5; border-bottom:1px solid var(--border); color:var(--muted); }
+  .conn-bar.ok { color:var(--green); background:#F0FBF4; }
+  .conn-bar.err { color:var(--red); background:#FEF2EE; }
+  .cwmsgs { flex:1; overflow-y:auto; padding:0.9rem; display:flex; flex-direction:column; gap:0.75rem; background:#FAFAF8; }
+  .cwmsgs::-webkit-scrollbar { width:3px; }
+  .cwmsgs::-webkit-scrollbar-thumb { background:#DDD; border-radius:2px; }
+  .cm { display:flex; gap:0.45rem; align-items:flex-end; animation:mup 0.22s ease; }
+  @keyframes mup { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+  .cm.me { flex-direction:row-reverse; }
+  .cm-av { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.58rem; font-weight:700; flex-shrink:0; }
+  .cm:not(.me) .cm-av { background:#FFE8E4; color:var(--red); }
+  .cm.me .cm-av { background:#E5E5EC; color:#444; }
+  .cm-bd { max-width:74%; }
+  .cm-txt { padding:0.58rem 0.82rem; font-size:0.82rem; line-height:1.5; word-break:break-word; border-radius:4px; }
+  .cm:not(.me) .cm-txt { background:#fff; border:1px solid #EBEBEB; color:var(--dark); border-radius:4px 12px 12px 4px; }
+  .cm.me .cm-txt { background:var(--dark); color:#fff; border-radius:12px 4px 4px 12px; }
+  .cm-t { font-size:0.58rem; color:var(--muted); margin-top:0.22rem; }
+  .cm.me .cm-t { text-align:right; }
+  .qpills { display:flex; flex-wrap:wrap; gap:0.38rem; padding:0.6rem 0.85rem; border-top:1px solid var(--border); background:#fff; }
+  .qp { background:none; border:1px solid #DDD; font-size:0.7rem; font-family:inherit; padding:0.25rem 0.58rem; border-radius:20px; cursor:pointer; color:#555; transition:all 0.15s; }
+  .qp:hover { border-color:var(--red); color:var(--red); }
+  .cwf { display:flex; gap:0.5rem; padding:0.65rem; border-top:1px solid var(--border); background:#fff; }
+  .cw-inp { flex:1; border:1.5px solid #DDD; background:#FAFAF8; padding:0.58rem 0.82rem; font-family:inherit; font-size:0.82rem; border-radius:8px; outline:none; transition:border-color 0.18s; }
+  .cw-inp:focus { border-color:var(--red); }
+  .cw-inp::placeholder { color:#BBB; }
+  .cw-send { background:var(--dark); border:none; width:34px; height:34px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; flex-shrink:0; }
+  .cw-send:hover { background:var(--red); }
+  .cw-send svg { width:13px; height:13px; fill:#fff; }
+
+  /* AUTH MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:500; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  .modal-overlay.hidden { display:none; }
+  .modal { background:#fff; border-radius:16px; padding:2.5rem; width:100%; max-width:420px; box-shadow:0 24px 80px rgba(0,0,0,0.18); position:relative; }
+  .modal-logo { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; letter-spacing:0.06em; margin-bottom:0.3rem; }
+  .modal-logo span { color:var(--red); }
+  .modal-title { font-size:1.3rem; font-weight:700; margin-bottom:0.35rem; }
+  .modal-sub { font-size:0.82rem; color:var(--muted); margin-bottom:1.8rem; }
+  .mfield { width:100%; border:1.5px solid var(--border); background:#FAFAF8; color:var(--dark); font-size:0.9rem; font-family:inherit; padding:0.78rem 1rem; border-radius:8px; outline:none; margin-bottom:0.75rem; transition:border-color 0.2s; }
+  .mfield:focus { border-color:var(--red); }
+  .mbtn { width:100%; padding:0.82rem; background:var(--red); color:#fff; border:none; cursor:pointer; font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:0.1em; border-radius:8px; transition:background 0.18s; margin-top:0.3rem; }
+  .mbtn:hover { background:var(--red-dark); }
+  .mbtn:disabled { opacity:0.45; cursor:not-allowed; }
+  .modal-switch { text-align:center; margin-top:1.1rem; font-size:0.82rem; color:var(--muted); }
+  .modal-switch a { color:var(--red); cursor:pointer; font-weight:600; text-decoration:none; }
+  .modal-err { background:#FEF2EE; color:var(--red); border:1px solid #FBCFC5; border-radius:6px; padding:0.55rem 0.8rem; font-size:0.8rem; margin-bottom:0.75rem; display:none; }
+  .modal-err.show { display:block; }
+  .otp-boxes { display:flex; gap:0.6rem; justify-content:center; margin-bottom:1rem; }
+  .otp-box { width:50px; height:56px; border:1.5px solid var(--border); border-radius:8px; text-align:center; font-size:1.4rem; font-family:'JetBrains Mono',monospace; font-weight:600; outline:none; background:#FAFAF8; transition:border-color 0.2s; }
+  .otp-box:focus { border-color:var(--red); }
+  .resend-link { text-align:center; font-size:0.78rem; color:var(--muted); margin-top:0.5rem; }
+  .resend-link a { color:var(--red); cursor:pointer; }
+  .auth-view { display:none; }
+  .auth-view.active { display:block; }
+  .chat-auth-gate { padding:1rem; text-align:center; display:none; flex-direction:column; align-items:center; gap:0.7rem; flex:1; justify-content:center; }
+  .chat-auth-gate.show { display:flex; }
+  .gate-txt { font-size:0.82rem; color:#888; line-height:1.6; }
+  .gate-btn { background:var(--red); color:#fff; border:none; padding:0.55rem 1.2rem; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer; font-family:inherit; }
+
+  @media(max-width:960px){
+    .hero{grid-template-columns:1fr}
+    .hero-left{border-right:none;border-bottom:1px solid var(--border);padding:3.5rem 2rem}
+    .hero-right{padding:3rem 2rem;min-height:55vh}
+    .svcs{grid-template-columns:1fr 1fr}
+    .svc:nth-child(2){border-right:none} .svc:nth-child(3){border-right:1px solid var(--border)}
+    .steps-g{grid-template-columns:1fr}
+    .how{padding:4rem 2rem}
+    nav{padding:0 1.5rem}
+    .nav-links li:not(:last-child){display:none}
+    footer{flex-direction:column;gap:1.2rem;text-align:center;padding:2rem}
+    .cwin{width:calc(100vw - 2rem);right:1rem}
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authOverlay">
+  <div class="modal">
+    <div class="modal-logo">Swift<span>Track</span></div>
+
+    <!-- LOGIN VIEW -->
+    <div class="auth-view active" id="viewLogin">
+      <div class="modal-title">Sign in to your account</div>
+      <div class="modal-sub">Track parcels, chat with support, and manage your deliveries.</div>
+      <div class="modal-err" id="loginErr"></div>
+      <input class="mfield" id="loginEmail" type="email" placeholder="Email address" autocomplete="email">
+      <input class="mfield" id="loginPass" type="password" placeholder="Password" autocomplete="current-password">
+      <button class="mbtn" id="loginBtn" onclick="doLogin()">SIGN IN →</button>
+      <div class="modal-switch">Don't have an account? <a onclick="switchView('signup')">Create one</a></div>
+    </div>
+
+    <!-- SIGNUP VIEW -->
+    <div class="auth-view" id="viewSignup">
+      <div class="modal-title">Create your account</div>
+      <div class="modal-sub">Get started with real-time parcel tracking and support.</div>
+      <div class="modal-err" id="signupErr"></div>
+      <input class="mfield" id="signupName" type="text" placeholder="Full name">
+      <input class="mfield" id="signupEmail" type="email" placeholder="Email address" autocomplete="email">
+      <input class="mfield" id="signupPass" type="password" placeholder="Password (min 8 characters)" autocomplete="new-password">
+      <button class="mbtn" id="signupBtn" onclick="doSignup()">CREATE ACCOUNT →</button>
+      <div class="modal-switch">Already have an account? <a onclick="switchView('login')">Sign in</a></div>
+    </div>
+
+    <!-- OTP VIEW -->
+    <div class="auth-view" id="viewOtp">
+      <div class="modal-title">Check your email</div>
+      <div class="modal-sub" id="otpSub">We sent a 6-digit code to your email. Enter it below.</div>
+      <div class="modal-err" id="otpErr"></div>
+      <div class="otp-boxes" id="otpBoxes">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="otp-box" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+      </div>
+      <button class="mbtn" id="otpBtn" onclick="verifyOtp()">VERIFY CODE →</button>
+      <div class="resend-link">Didn't receive it? <a onclick="resendOtp()">Resend code</a></div>
+    </div>
+  </div>
+</div>
+
+<nav>
+  <div class="logo">Swift<span class="logo-accent">Track</span></div>
+  <ul class="nav-links">
+    <li><a href="#">Services</a></li>
+    <li><a href="#">Business</a></li>
+    <li><a href="#">Locations</a></li>
+    <li id="navAuthItem"><a href="#" class="nprimary" onclick="showAuth(event)">Sign In</a></li>
+    <li id="navUserItem" style="display:none"><a href="#" onclick="doLogout(event)" style="color:var(--muted)">Sign Out</a></li>
+  </ul>
+</nav>
+
+<div class="ticker">
+  <div class="ticker-inner">
+    <span class="tick">Same-Day Delivery</span><span class="tsep">✦</span>
+    <span class="tick">Express Nationwide</span><span class="tsep">✦</span>
+    <span class="tick">Real-Time Tracking</span><span class="tsep">✦</span>
+    <span class="tick">Cold Chain Logistics</span><span class="tsep">✦</span>
+    <span class="tick">International Freight</span><span class="tsep">✦</span>
+    <span class="tick">White-Glove Service</span><span class="tsep">✦</span>
+    <span class="tick">98.4% On-Time</span><span class="tsep">✦</span>
+    <span class="tick">Same-Day Delivery</span><span class="tsep">✦</span>
+    <span class="tick">Express Nationwide</span><span class="tsep">✦</span>
+    <span class="tick">Real-Time Tracking</span><span class="tsep">✦</span>
+    <span class="tick">Cold Chain Logistics</span><span class="tsep">✦</span>
+    <span class="tick">International Freight</span><span class="tsep">✦</span>
+    <span class="tick">White-Glove Service</span><span class="tsep">✦</span>
+    <span class="tick">98.4% On-Time</span><span class="tsep">✦</span>
+  </div>
+</div>
+
+<section class="hero">
+  <div class="hero-left">
+    <div class="eyebrow"><span class="e-dot"></span>Global Courier Network</div>
+    <h1>Delivered<span class="red">On Time.</span></h1>
+    <p class="hero-desc">SwiftTrack moves your parcels, freight, and critical cargo with precision. End-to-end visibility from pickup to your door — in 140+ countries.</p>
+    <div class="hero-btns">
+      <a href="#" class="btn btn-red">Book a Pickup →</a>
+      <a href="#" class="btn btn-ghost">View Services</a>
+    </div>
+    <div class="hero-stats">
+      <div><div class="stat-n">98.4%</div><div class="stat-l">On-time Rate</div></div>
+      <div><div class="stat-n">140+</div><div class="stat-l">Countries</div></div>
+      <div><div class="stat-n">2.3M</div><div class="stat-l">Deliveries / mo</div></div>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="track-lbl">Package Tracker</div>
+    <input id="tInput" class="tfield" type="text" placeholder="e.g. SWT-48291-A" maxlength="32" onkeydown="if(event.key==='Enter')doTrack()">
+    <button class="tbtn" onclick="doTrack()">TRACK PACKAGE →</button>
+    <div class="res" id="resBox">
+      <div class="res-id" id="resId"></div>
+      <div class="res-st" id="resSt"></div>
+      <div class="tl" id="resTL"></div>
+    </div>
+    <div class="demo-ids" id="demHint" style="margin-top:1.1rem;font-family:'JetBrains Mono',monospace;font-size:0.63rem;color:rgba(255,255,255,0.3);line-height:2.1;">
+      <b style="display:block;color:rgba(255,255,255,0.42);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.15rem;">Enter your tracking code above</b>
+      <span style="color:rgba(255,255,255,0.25);">Codes are provided by your sender or assigned by admin</span>
+    </div>
+  </div>
+</section>
+
+<div class="svcs">
+  <div class="svc"><div class="svc-ic">⚡</div><div class="svc-h">Same Day</div><p class="svc-p">Urgent deliveries collected and delivered within hours. Available in 60+ cities.</p></div>
+  <div class="svc"><div class="svc-ic">🌍</div><div class="svc-h">International</div><p class="svc-p">Customs-cleared freight to 140+ countries with full door-to-door visibility.</p></div>
+  <div class="svc"><div class="svc-ic">❄️</div><div class="svc-h">Cold Chain</div><p class="svc-p">Temperature-controlled transport for pharmaceuticals, food, and sensitive cargo.</p></div>
+  <div class="svc"><div class="svc-ic">🔗</div><div class="svc-h">Business API</div><p class="svc-p">Integrate SwiftTrack into your platform with webhooks, labels, and bulk shipping.</p></div>
+</div>
+
+<section class="how">
+  <div class="sec-tag">How It Works</div>
+  <div class="sec-h">From Click to Doorstep</div>
+  <div class="steps-g">
+    <div class="step"><span class="step-n">01</span><div class="step-ic">📦</div><div class="step-h">Book a Pickup</div><p class="step-p">Schedule online in 2 minutes. Our driver arrives at your chosen time, packaging included if needed.</p></div>
+    <div class="step"><span class="step-n">02</span><div class="step-ic">🔍</div><div class="step-h">Track in Real Time</div><p class="step-p">Get SMS and email alerts at every checkpoint. Live map view on Pro shipments.</p></div>
+    <div class="step"><span class="step-n">03</span><div class="step-ic">✅</div><div class="step-h">Delivered & Signed</div><p class="step-p">Digital proof of delivery with photo confirmation. Rate your experience instantly.</p></div>
+  </div>
+</section>
+
+<footer>
+  <div class="fl">Swift<span>Track</span></div>
+  <ul class="flinks"><li><a href="#">Privacy</a></li><li><a href="#">Terms</a></li><li><a href="#">Careers</a></li><li><a href="#">Press</a></li></ul>
+  <p class="fc">© 2026 SwiftTrack Logistics Ltd.</p>
+</footer>
+
+<!-- CHAT FAB -->
+<button class="fab" onclick="toggleChat()">
+  <div class="fab-dot"></div>
+  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+</button>
+
+<!-- CHAT WINDOW -->
+<div class="cwin" id="cwin">
+  <div class="cwh">
+    <div class="cwav">ST</div>
+    <div>
+      <div class="cwn">SwiftTrack Support</div>
+      <div class="cws"><span class="cws-dot"></span>Online · We reply instantly</div>
+    </div>
+    <button class="cwx" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="conn-bar" id="connBar">Connecting to support…</div>
+
+  <!-- AUTH GATE (shown when not logged in) -->
+  <div class="chat-auth-gate" id="chatGate">
+    <div style="font-size:2rem;">🔒</div>
+    <div class="gate-txt">Sign in to chat with our support team and get real-time help with your deliveries.</div>
+    <button class="gate-btn" onclick="showAuth()">Sign In to Chat</button>
+  </div>
+
+  <div class="cwmsgs" id="cwMsgs" style="display:none;">
+    <div class="cm">
+      <div class="cm-av">ST</div>
+      <div class="cm-bd">
+        <div class="cm-txt">Hey there! 👋 How can we help you today? Ask us about tracking, pickups, rates, or any delivery issue.</div>
+        <div class="cm-t">Just now</div>
+      </div>
+    </div>
+  </div>
+  <div class="qpills" id="qpills" style="display:none;">
+    <button class="qp" onclick="qs('Where is my package?')">📦 Track package</button>
+    <button class="qp" onclick="qs('How do I schedule a pickup?')">🚚 Pickup</button>
+    <button class="qp" onclick="qs('What are your delivery rates?')">💰 Rates</button>
+    <button class="qp" onclick="qs('I have a problem with my delivery')">⚠️ Report issue</button>
+  </div>
+  <div class="cwf" id="cwFooter" style="display:none;">
+    <input class="cw-inp" id="cwInp" type="text" placeholder="Type a message…" onkeydown="if(event.key==='Enter')csend()">
+    <button class="cw-send" onclick="csend()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ══ SUPABASE — replace with your real credentials ══ */
+const SUPABASE_URL  = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON = 'YOUR_ANON_PUBLIC_KEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let currentUser = null;
+let SID = null;
+let chatOpen = false, sub = null;
+let otpEmail = '', otpMode = 'signup'; // signup or login
+
+/* ══ AUTH ══ */
+async function checkSession(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session?.user){
+    currentUser = session.user;
+    onLoggedIn();
+  } else {
+    showAuthModal();
+  }
+}
+
+function showAuth(e){ if(e) e.preventDefault(); showAuthModal(); }
+function showAuthModal(){ document.getElementById('authOverlay').classList.remove('hidden'); switchView('login'); }
+function hideAuthModal(){ document.getElementById('authOverlay').classList.add('hidden'); }
+
+function switchView(v){
+  document.querySelectorAll('.auth-view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active');
+}
+
+function setErr(id, msg){ const el=document.getElementById(id); el.textContent=msg; el.classList.toggle('show', !!msg); }
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  setErr('loginErr','');
+  if(!email||!pass){ setErr('loginErr','Please fill in all fields.'); return; }
+  const btn=document.getElementById('loginBtn'); btn.disabled=true; btn.textContent='SIGNING IN…';
+  const{error}=await sb.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false; btn.textContent='SIGN IN →';
+  if(error){ setErr('loginErr', error.message); return; }
+  const{data:{session}}=await sb.auth.getSession();
+  currentUser=session.user; hideAuthModal(); onLoggedIn();
+}
+
+async function doSignup(){
+  const name=document.getElementById('signupName').value.trim();
+  const email=document.getElementById('signupEmail').value.trim();
+  const pass=document.getElementById('signupPass').value;
+  setErr('signupErr','');
+  if(!name||!email||!pass){ setErr('signupErr','Please fill in all fields.'); return; }
+  if(pass.length<8){ setErr('signupErr','Password must be at least 8 characters.'); return; }
+  const btn=document.getElementById('signupBtn'); btn.disabled=true; btn.textContent='CREATING…';
+  const{error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name},emailRedirectTo:window.location.href}});
+  btn.disabled=false; btn.textContent='CREATE ACCOUNT →';
+  if(error){ setErr('signupErr', error.message); return; }
+  otpEmail=email; otpMode='signup';
+  document.getElementById('otpSub').textContent=`We sent a 6-digit code to ${email}. Enter it below to verify your account.`;
+  switchView('otp');
+  setupOtpBoxes();
+}
+
+function setupOtpBoxes(){
+  const boxes=document.querySelectorAll('.otp-box');
+  boxes.forEach((box,i)=>{
+    box.value='';
+    box.oninput=()=>{ if(box.value&&i<boxes.length-1) boxes[i+1].focus(); };
+    box.onkeydown=(e)=>{ if(e.key==='Backspace'&&!box.value&&i>0) boxes[i-1].focus(); };
+  });
+  boxes[0].focus();
+}
+
+function getOtpValue(){
+  return Array.from(document.querySelectorAll('.otp-box')).map(b=>b.value).join('');
+}
+
+async function verifyOtp(){
+  const token=getOtpValue();
+  if(token.length<6){ setErr('otpErr','Please enter the full 6-digit code.'); return; }
+  setErr('otpErr','');
+  const btn=document.getElementById('otpBtn'); btn.disabled=true; btn.textContent='VERIFYING…';
+  const type=otpMode==='signup'?'signup':'email';
+  const{data,error}=await sb.auth.verifyOtp({email:otpEmail,token,type});
+  btn.disabled=false; btn.textContent='VERIFY CODE →';
+  if(error){ setErr('otpErr',error.message); return; }
+  currentUser=data.user; hideAuthModal(); onLoggedIn();
+}
+
+async function resendOtp(){
+  const{error}=await sb.auth.resend({type:'signup',email:otpEmail});
+  if(!error) setErr('otpErr',''); 
+  document.getElementById('otpSub').textContent='New code sent! Check your email.';
+}
+
+function onLoggedIn(){
+  document.getElementById('navAuthItem').style.display='none';
+  document.getElementById('navUserItem').style.display='block';
+  // Set session ID tied to user
+  SID = 'user_' + currentUser.id;
+  localStorage.setItem('swt_sid', SID);
+  // Show chat elements
+  document.getElementById('chatGate').classList.remove('show');
+  document.getElementById('cwMsgs').style.display='flex';
+  document.getElementById('qpills').style.display='flex';
+  document.getElementById('cwFooter').style.display='flex';
+}
+
+async function doLogout(e){
+  if(e) e.preventDefault();
+  await sb.auth.signOut();
+  currentUser=null; SID=null;
+  document.getElementById('navAuthItem').style.display='block';
+  document.getElementById('navUserItem').style.display='none';
+  document.getElementById('chatGate').classList.add('show');
+  document.getElementById('cwMsgs').style.display='none';
+  document.getElementById('qpills').style.display='none';
+  document.getElementById('cwFooter').style.display='none';
+  if(sub){ sub.unsubscribe(); sub=null; }
+}
+
+/* ══ TRACKER — reads from Supabase ══ */
+async function doTrack(){
+  const id=document.getElementById('tInput').value.trim().toUpperCase();
+  if(!id) return;
+  const box=document.getElementById('resBox');
+  document.getElementById('resId').textContent='Tracking: '+id;
+  const{data,error}=await sb.from('parcels').select('*').eq('tracking_code',id).single();
+  if(error||!data){
+    document.getElementById('resSt').className='res-st notfound';
+    document.getElementById('resSt').textContent='Not Found';
+    document.getElementById('resTL').innerHTML='<div style="font-size:.77rem;color:rgba(255,255,255,.38);margin-top:.4rem;">No shipment found for this ID. Please verify or contact support.</div>';
+  } else {
+    const statusClass = {
+      'In Transit':'transit','Delivered':'delivered','Processing':'processing','Out for Delivery':'transit','Pending':'processing'
+    }[data.status]||'processing';
+    document.getElementById('resSt').className='res-st '+statusClass;
+    document.getElementById('resSt').textContent=data.status;
+    // Build timeline
+    let tlHtml='';
+    if(data.timeline && Array.isArray(data.timeline)){
+      tlHtml=data.timeline.map((r,i)=>`
+        <div class="tl-row">
+          <div class="tl-dot ${i===0?'active':'done'}"></div>
+          <div><div class="tl-ev">${esc(r.event)}</div>
+          <div class="tl-mt">${esc(r.location||'')}${r.location&&r.time?' · ':''}${esc(r.time||'')}</div></div>
+        </div>`).join('');
+    } else {
+      tlHtml=`<div style="font-size:.77rem;color:rgba(255,255,255,.55);">${esc(data.current_location||'Location not available')}</div>`;
+    }
+    document.getElementById('resTL').innerHTML=tlHtml;
+  }
+  box.classList.add('show');
+}
+
+/* ══ CHAT ══ */
+function toggleChat(){
+  chatOpen=!chatOpen;
+  document.getElementById('cwin').classList.toggle('open',chatOpen);
+  if(chatOpen){
+    if(!currentUser){
+      document.getElementById('chatGate').classList.add('show');
+      document.getElementById('cwMsgs').style.display='none';
+      document.getElementById('qpills').style.display='none';
+      document.getElementById('cwFooter').style.display='none';
+    } else if(!sub){
+      initChat();
+    }
+  }
+}
+
+function now(){ return new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addMsg(txt, role){
+  const c=document.getElementById('cwMsgs');
+  const d=document.createElement('div');
+  d.className='cm'+(role==='user'?' me':'');
+  d.innerHTML=`<div class="cm-av">${role==='user'?'ME':'ST'}</div><div class="cm-bd"><div class="cm-txt">${esc(txt)}</div><div class="cm-t">${now()}</div></div>`;
+  c.appendChild(d); c.scrollTop=c.scrollHeight;
+}
+
+function setConn(st){
+  const el=document.getElementById('connBar');
+  if(st==='ok'){el.textContent='🟢 Connected — support is online';el.className='conn-bar ok';}
+  else if(st==='err'){el.textContent='🔴 Connection issue — retrying';el.className='conn-bar err';}
+  else {el.textContent='Connecting to support…';el.className='conn-bar';}
+}
+
+async function initChat(){
+  setConn('connecting');
+  const{data}=await sb.from('messages').select('*').eq('session_id',SID).order('created_at',{ascending:true});
+  if(data&&data.length>0){
+    document.getElementById('cwMsgs').innerHTML='';
+    document.getElementById('qpills').style.display='none';
+    data.forEach(m=>addMsg(m.text, m.sender==='admin'?'agent':m.sender));
+  }
+  sub=sb.channel('chat:'+SID)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`session_id=eq.${SID}`},p=>{
+      if(p.new.sender==='admin') addMsg(p.new.text,'agent');
+    })
+    .subscribe(s=>setConn(s==='SUBSCRIBED'?'ok':'err'));
+}
+
+async function csend(){
+  if(!currentUser){ showAuthModal(); return; }
+  const inp=document.getElementById('cwInp');
+  const t=inp.value.trim(); if(!t) return;
+  inp.value='';
+  document.getElementById('qpills').style.display='none';
+  addMsg(t,'user');
+  const{error}=await sb.from('messages').insert({
+    session_id:SID, sender:'user', text:t,
+    user_id: currentUser.id,
+    user_email: currentUser.email,
+    user_name: currentUser.user_metadata?.full_name||currentUser.email
+  });
+  if(error) addMsg('⚠️ Failed to send. Please try again.','agent');
+}
+function qs(t){ document.getElementById('cwInp').value=t; csend(); }
+
+/* ══ INIT ══ */
+checkSession();
+</script>
+</body>
+</html>
